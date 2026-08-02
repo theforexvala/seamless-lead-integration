@@ -10,7 +10,7 @@ export function maskPhone(phone: string | null | undefined): string {
 export function maskEmail(email: string | null | undefined): string {
   if (!email) return "—";
   const [user, domain] = email.split("@");
-  if (!domain) return "—";
+  if (!user || !domain) return "—";
   return `${user.slice(0, 1)}****@${domain}`;
 }
 
