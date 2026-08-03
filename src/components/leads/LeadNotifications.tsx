@@ -58,7 +58,7 @@ export function NotificationCenter() {
           key={n.id}
           className={cn(
             "flex items-start gap-3 rounded-xl border px-4 py-3",
-            TYPE_TONE[n.type] ?? TYPE_TONE.info,
+            TYPE_TONE[n.type] ?? TYPE_TONE['info'],
             n.read && "opacity-60",
           )}
         >
@@ -106,7 +106,7 @@ export function NotificationDock({ open, onClose }: { open: boolean; onClose: ()
           key={n.id}
           className={cn(
             "rounded-xl border bg-card/95 px-4 py-3 backdrop-blur-xl",
-            TYPE_TONE[n.type] ?? TYPE_TONE.info,
+            TYPE_TONE[n.type] ?? TYPE_TONE['info'],
           )}
         >
           <p className="text-xs text-foreground">{n.message}</p>
