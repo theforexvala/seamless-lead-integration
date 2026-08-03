@@ -540,7 +540,7 @@ export function LeadEscalation({ onOpenLead }: { onOpenLead: (l: Lead) => void }
                 </button>
                 <span className="rounded-md border border-border px-2 py-0.5 text-[11px] capitalize text-muted-foreground">{e.status}</span>
                 {e.status !== "resolved" ? (
-                  <button onClick={() => update.mutate({ id: e.id, patch: { level: e.level + 1, status: "escalated" } })} className="rounded-lg border border-warning/45 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold text-warning">
+                  <button onClick={() => update.mutate({ id: e.id, patch: { level: e.level + 1, status: "acknowledged" } })} className="rounded-lg border border-warning/45 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold text-warning">
                     Escalate further
                   </button>
                 ) : null}
