@@ -1,9 +1,11 @@
 import { useMemo } from "react";
-import { Brain, X, Zap } from "lucide-react";
+import { Brain, Copy, Flame, X, Zap } from "lucide-react";
+import { toast } from "sonner";
 import { useLeadMutations, useLeads } from "@/lib/leads/hooks";
 import { formatCurrency, relativeTime } from "@/lib/leads/format";
 import type { Lead } from "@/lib/leads/types";
 import { cn } from "@/lib/utils";
+
 
 interface Recommendation {
   id: string;
