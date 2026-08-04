@@ -1,9 +1,11 @@
 import { useMemo } from "react";
-import { Brain, X, Zap } from "lucide-react";
+import { Brain, Copy, Flame, X, Zap } from "lucide-react";
+import { toast } from "sonner";
 import { useLeadMutations, useLeads } from "@/lib/leads/hooks";
 import { formatCurrency, relativeTime } from "@/lib/leads/format";
 import type { Lead } from "@/lib/leads/types";
 import { cn } from "@/lib/utils";
+
 
 interface Recommendation {
   id: string;
@@ -87,6 +89,36 @@ export function AIActionPanel({ open, onClose, onOpenLead }: { open: boolean; on
       .slice(0, 25);
   }, [leads, changeStatus, logActivity, onOpenLead]);
 
+  const active = leads.filter((l) => l.status !== "won" && l.status !== "lost");
+  const heat = {
+    hot: active.filter((l) => l.priority === "hot").length,
+    warm: active.filter((l) => l.priority === "warm").length,
+    cold: active.filter((l) => l.priority === "cold").length,
+  };
+
+  const templates = [
+    {
+      id: "intro",
+      label: "First contact",
+      body: "Hello, this is Software Vala. Thank you for your interest in our software. Could we schedule a 15-minute call to understand your requirements?",
+    },
+    {
+      id: "demo",
+      label: "Demo invite",
+      body: "We would love to show you a live demo tailored to your workflow. Which time suits you best — today or tomorrow?",
+    },
+    {
+      id: "quote",
+      label: "Quote follow-up",
+      body: "Sharing the quotation for the modules we discussed. Let me know if you would like a revised scope or payment plan.",
+    },
+    {
+      id: "reengage",
+      label: "Re-engagement",
+      body: "Just checking in on your software requirement. Should I keep the proposal open, or would a later date work better?",
+    },
+  ];
+
   if (!open) return null;
   void assign;
 
@@ -101,7 +133,7 @@ export function AIActionPanel({ open, onClose, onOpenLead }: { open: boolean; on
             <Brain className="h-4.5 w-4.5 text-primary-foreground" />
           </div>
           <div className="flex-1">
-            <h2 className="text-sm font-semibold text-foreground">AI Action Panel</h2>
+            <h2 className="text-sm font-semibold text-foreground">AI Auto-Action Panel</h2>
             <p className="text-[11px] text-muted-foreground">
               {recommendations.length} recommendations from live pipeline signals
             </p>
@@ -112,11 +144,57 @@ export function AIActionPanel({ open, onClose, onOpenLead }: { open: boolean; on
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          <section className="rounded-xl border border-border bg-secondary/30 p-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Flame className="h-3.5 w-3.5" /> Heat indicator
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+              {([["Hot", heat.hot, "text-destructive"], ["Warm", heat.warm, "text-warning"], ["Cold", heat.cold, "text-info"]] as const).map(
+                ([label, value, tone]) => (
+                  <div key={label} className="rounded-lg border border-border bg-background/40 py-2">
+                    <p className={cn("text-lg font-semibold tabular-nums", tone)}>{value}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+                  </div>
+                ),
+              )}
+            </div>
+            <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-secondary">
+              <div className="bg-destructive" style={{ width: `${(heat.hot / Math.max(1, active.length)) * 100}%` }} />
+              <div className="bg-warning" style={{ width: `${(heat.warm / Math.max(1, active.length)) * 100}%` }} />
+              <div className="bg-info" style={{ width: `${(heat.cold / Math.max(1, active.length)) * 100}%` }} />
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-secondary/30 p-3">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Reply templates</p>
+            <div className="mt-2 space-y-2">
+              {templates.map((t) => (
+                <div key={t.id} className="rounded-lg border border-border bg-background/40 p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-foreground">{t.label}</p>
+                    <button
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(t.body);
+                        toast.success(`${t.label} template copied`);
+                      }}
+                      className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <Copy className="h-3 w-3" /> Copy
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t.body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <p className="pt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">AI suggestions</p>
           {recommendations.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
               Pipeline is healthy — no actions required right now.
             </p>
           ) : null}
+
           {recommendations.map((r) => (
             <div key={r.id} className={cn("rounded-xl border p-4", r.tone)}>
               <div className="flex items-start gap-2">

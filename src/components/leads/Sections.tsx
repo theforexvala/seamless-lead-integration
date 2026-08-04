@@ -4,13 +4,17 @@ import {
   BellRing,
   Brain,
   CheckCircle2,
+  Gauge,
   Globe,
   Plus,
+  Route as RouteIcon,
   ScrollText,
   ShieldCheck,
   Timer,
   UserPlus,
+  Users,
 } from "lucide-react";
+
 import {
   Bar,
   BarChart,
@@ -22,8 +26,10 @@ import {
   YAxis,
 } from "recharts";
 import {
+  useActivities,
   useAlertMutations,
   useAuditLogs,
+
   useBehaviorEvents,
   useBuzzerAlerts,
   useComplianceMutations,
@@ -124,17 +130,49 @@ export function LeadAssignment({ onOpenLead }: { onOpenLead: (l: Lead) => void }
   const { data: leads = [] } = useLeads();
   const { data: team = [] } = useTeam();
   const { assign } = useLeadMutations();
+  const [role, setRole] = useState("all");
   const unassigned = leads.filter((l) => !l.assigned_to && l.status !== "won" && l.status !== "lost");
+  const roles = Array.from(new Set(team.map((t) => t.role))).sort();
+  const pool = team.filter((t) => t.active && (role === "all" || t.role === role));
+
+  /** Deterministic match: same region, lowest load ratio, highest historic win-rate. */
+  const recommend = (lead: Lead) => {
+    const scored = pool
+      .map((m) => {
+        const owned = leads.filter((l) => l.assigned_to === m.vala_id);
+        const openLoad = owned.filter((l) => l.status !== "won" && l.status !== "lost").length;
+        const winRate = percent(owned.filter((l) => l.status === "won").length, owned.length);
+        const regionMatch = m.region === lead.region || m.region === lead.country ? 40 : 0;
+        return { member: m, score: regionMatch + winRate * 0.4 + Math.max(0, 40 - (openLoad / Math.max(1, m.capacity)) * 40), openLoad, winRate };
+      })
+      .sort((a, b) => b.score - a.score);
+    return scored[0] ?? null;
+  };
+
+  const matched = unassigned.filter((l) => recommend(l)?.score ?? 0 > 40).length;
 
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="Routing" title="Lead Assignment" description="Balance workload across regional owners." />
+      <SectionHeader
+        eyebrow="Routing"
+        title="Lead Assignment"
+        description="Assign leads to sales, franchises or resellers and balance workload."
+        actions={
+          <select className={cn(control, "max-w-44")} value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="all">All roles</option>
+            {roles.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        }
+      />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Unassigned" value={unassigned.length} tone="warning" icon={<UserPlus className="h-4 w-4" />} />
-        <StatTile label="Active reps" value={team.filter((t) => t.active).length} />
-        <StatTile label="Total capacity" value={team.reduce((s, t) => s + t.capacity, 0)} tone="info" />
-        <StatTile label="Assigned leads" value={leads.filter((l) => l.assigned_to).length} tone="success" />
+        <StatTile label="Available agents" value={pool.length} />
+        <StatTile label="AI match rate" value={`${percent(matched, unassigned.length)}%`} tone="primary" icon={<Brain className="h-4 w-4" />} />
+        <StatTile label="Avg conversion" value={`${percent(leads.filter((l) => l.status === "won").length, leads.filter((l) => l.assigned_to).length)}%`} tone="success" />
       </div>
+
 
       <Panel title="Team workload" bodyClassName="space-y-3">
         {team.map((m) => {
@@ -163,34 +201,51 @@ export function LeadAssignment({ onOpenLead }: { onOpenLead: (l: Lead) => void }
         })}
       </Panel>
 
-      <Panel title="Awaiting routing" bodyClassName="space-y-3">
+      <Panel title="Awaiting routing" description="AI recommended assignee based on region match, open load and win rate" bodyClassName="space-y-3">
         {unassigned.length === 0 ? <EmptyState title="Everything is routed" /> : null}
-        {unassigned.map((lead) => (
-          <div key={lead.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-secondary/30 p-3">
-            <button onClick={() => onOpenLead(lead)} className="min-w-0 flex-1 text-left">
-              <p className="truncate text-sm font-medium text-foreground">{lead.full_name}</p>
-              <p className="truncate text-[11px] text-muted-foreground">
-                {lead.region} · {lead.software_interest} · {formatCurrency(lead.expected_value)}
-              </p>
-            </button>
-            <select
-              className={cn(control, "max-w-64")}
-              defaultValue=""
-              onChange={(e) => {
-                const member = team.find((t) => t.vala_id === e.target.value);
-                if (member) assign.mutate({ id: lead.id, to: member.vala_id, role: member.role });
-              }}
-            >
-              <option value="">Assign owner…</option>
-              {team.filter((t) => t.active).map((t) => (
-                <option key={t.id} value={t.vala_id}>
-                  {t.full_name} ({t.region})
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
+        {unassigned.map((lead) => {
+          const best = recommend(lead);
+          return (
+            <div key={lead.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-secondary/30 p-3">
+              <button onClick={() => onOpenLead(lead)} className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-medium text-foreground">{lead.full_name}</p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {lead.region} · {lead.software_interest} · {formatCurrency(lead.expected_value)}
+                </p>
+              </button>
+              {best ? (
+                <button
+                  onClick={() => assign.mutate({ id: lead.id, to: best.member.vala_id, role: best.member.role })}
+                  className="rounded-lg border border-primary/45 bg-primary/10 px-3 py-1.5 text-left text-[11px] font-semibold text-primary"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Brain className="h-3.5 w-3.5" /> Auto-assign {best.member.full_name}
+                  </span>
+                  <span className="block font-normal text-muted-foreground">
+                    {best.member.role} · load {best.openLoad}/{best.member.capacity} · {best.winRate}% win
+                  </span>
+                </button>
+              ) : null}
+              <select
+                className={cn(control, "max-w-64")}
+                defaultValue=""
+                onChange={(e) => {
+                  const member = team.find((t) => t.vala_id === e.target.value);
+                  if (member) assign.mutate({ id: lead.id, to: member.vala_id, role: member.role });
+                }}
+              >
+                <option value="">Assign owner…</option>
+                {pool.map((t) => (
+                  <option key={t.id} value={t.vala_id}>
+                    {t.full_name} ({t.role} · {t.region})
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
       </Panel>
+
     </div>
   );
 }
@@ -342,15 +397,43 @@ export function LeadBuzzer() {
   const { acknowledge } = useAlertMutations();
   const live = alerts.filter((a) => !a.acknowledged);
 
+  const ageSeconds = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  const bands = [
+    { label: "0–60 seconds", hint: "Normal queue — buzzer active", tone: "success" as const, rows: live.filter((a) => ageSeconds(a.created_at) < 60) },
+    { label: "60–120 seconds", hint: "Level 1 — senior notified", tone: "warning" as const, rows: live.filter((a) => ageSeconds(a.created_at) >= 60 && ageSeconds(a.created_at) < 120) },
+    { label: "120+ seconds", hint: "Level 2 — Super Admin alert", tone: "danger" as const, rows: live.filter((a) => ageSeconds(a.created_at) >= 120) },
+  ];
+
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="Execution" title="Buzzer Alerts" description="Instant alerts for hot leads and SLA breaches." />
+      <SectionHeader eyebrow="Execution" title="Buzzer Alerts" description="Instant alerts for hot leads and SLA breaches. Mandatory acknowledgment system." />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Live alerts" value={live.length} tone="danger" icon={<BellRing className="h-4 w-4" />} />
         <StatTile label="Critical" value={live.filter((a) => a.severity === "critical").length} tone="danger" />
         <StatTile label="Acknowledged" value={alerts.length - live.length} tone="success" />
         <StatTile label="Total raised" value={alerts.length} />
       </div>
+
+      <Panel title="Acknowledgment window" description="Escalation ladder applied to unacknowledged alerts" bodyClassName="grid gap-3 sm:grid-cols-3">
+        {bands.map((b) => (
+          <div key={b.label} className="rounded-xl border border-border bg-secondary/30 p-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{b.label}</p>
+            <p className={cn("mt-2 text-2xl font-semibold tabular-nums", b.tone === "danger" ? "text-destructive" : b.tone === "warning" ? "text-warning" : "text-success")}>
+              {b.rows.length}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{b.hint}</p>
+          </div>
+        ))}
+      </Panel>
+
+      {live.length === 0 ? (
+        <Panel bodyClassName="p-4">
+          <p className="text-sm font-semibold text-success">All Clear!</p>
+          <p className="text-[11px] text-muted-foreground">No pending lead alerts at this time.</p>
+        </Panel>
+      ) : null}
+
+
 
       <Panel title="Alert stream" bodyClassName="space-y-3">
         {alerts.length === 0 ? <EmptyState title="No alerts" description="The buzzer is quiet." /> : null}
@@ -393,10 +476,47 @@ export function LeadTerritory() {
   const { data: territories = [] } = useTerritories();
   const { data: leads = [] } = useLeads();
   const { data: team = [] } = useTeam();
+  const [query, setQuery] = useState("");
+
+  const filtered = territories.filter((t) =>
+    `${t.name} ${t.country} ${t.continent}`.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  const conflicts = useMemo(() => {
+    const byCountry = new Map<string, typeof territories>();
+    territories.forEach((t) => byCountry.set(t.country, [...(byCountry.get(t.country) ?? []), t]));
+    const out: { country: string; detail: string }[] = [];
+    byCountry.forEach((rows, country) => {
+      const managers = new Set(rows.map((r) => r.manager_vala_id ?? "unassigned"));
+      if (managers.size > 1) out.push({ country, detail: `${rows.length} territories routed to ${managers.size} different owners` });
+      const missing = rows.filter((r) => !r.manager_vala_id);
+      if (missing.length) out.push({ country, detail: `${missing.length} territory without an assigned owner` });
+    });
+    return out;
+  }, [territories]);
+
+  const routingRules = [
+    { scope: "Country → Franchise", detail: "Routes to master franchise holder" },
+    { scope: "State → Sub-Franchise", detail: "Routes to regional franchise" },
+    { scope: "City → Reseller", detail: "Routes to local sales team" },
+    { scope: "Conflict prevention", detail: "No overlap allowed in territories" },
+  ];
 
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="Routing" title="Territory & Region Map" description="Coverage, targets and owners per territory." />
+      <SectionHeader
+        eyebrow="Routing"
+        title="Territory & Region Map"
+        description="Lead routing based on geographic territories."
+        actions={
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search territories..."
+            className={cn(control, "w-56")}
+          />
+        }
+      />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Territories" value={territories.length} icon={<Globe className="h-4 w-4" />} />
         <StatTile label="Continents" value={new Set(territories.map((t) => t.continent)).size} tone="info" />
@@ -404,8 +524,37 @@ export function LeadTerritory() {
         <StatTile label="Coverage" value={`${percent(leads.length, territories.reduce((s, t) => s + t.target_leads, 0))}%`} tone="success" />
       </div>
 
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="Auto-routing rules" bodyClassName="space-y-2">
+          {routingRules.map((r) => (
+            <div key={r.scope} className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-3 py-2">
+              <RouteIcon className="h-4 w-4 shrink-0 text-accent" />
+              <div>
+                <p className="text-xs font-medium text-foreground">{r.scope}</p>
+                <p className="text-[11px] text-muted-foreground">{r.detail}</p>
+              </div>
+            </div>
+          ))}
+        </Panel>
+
+        <Panel title="Territory conflicts detected" bodyClassName="space-y-2">
+          {conflicts.length === 0 ? (
+            <EmptyState title="No conflicts" description="Every territory has a single, unambiguous owner." />
+          ) : (
+            conflicts.map((c, i) => (
+              <div key={`${c.country}-${i}`} className="rounded-xl border border-warning/45 bg-warning/10 px-3 py-2">
+                <p className="text-xs font-semibold text-warning">{c.country}</p>
+                <p className="text-[11px] text-muted-foreground">{c.detail}</p>
+              </div>
+            ))
+          )}
+        </Panel>
+      </div>
+
       <Panel title="Territory performance" bodyClassName="space-y-3">
-        {territories.map((t) => {
+        {filtered.length === 0 ? <EmptyState title="No territories match your search" /> : null}
+        {filtered.map((t) => {
+
           const rows = leads.filter((l) => l.region === t.country);
           const manager = team.find((m) => m.vala_id === t.manager_vala_id);
           return (
@@ -434,23 +583,96 @@ export function LeadTerritory() {
 
 /* ----------------------------- follow-ups --------------------------------- */
 
+const FOLLOWUP_CHANNELS = ["Phone Call", "Email", "WhatsApp", "Video Call", "In-Person Meeting"];
+
 export function FollowUpAutomation({ onOpenLead }: { onOpenLead: (l: Lead) => void }) {
   const { data: followups = [] } = useFollowups();
   const { data: rules = [] } = useFollowupRules();
   const { data: leads = [] } = useLeads();
-  const { update, remove, toggleRule } = useFollowupMutations();
+  const { data: team = [] } = useTeam();
+  const { create, update, remove, toggleRule } = useFollowupMutations();
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
   const overdue = followups.filter((f) => f.status === "pending" && new Date(f.scheduled_at).getTime() < Date.now());
+  const today = followups.filter((f) => new Date(f.scheduled_at).toDateString() === new Date().toDateString());
+
+  const [form, setForm] = useState({ lead_id: "", channel: FOLLOWUP_CHANNELS[0]!, date: "", time: "", assigned_to: "", notes: "" });
+  const setField = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const schedule = (e: React.FormEvent) => {
+    e.preventDefault();
+    const lead = leadById.get(form.lead_id);
+    if (!lead || !form.date || !form.time) return;
+    create.mutate(
+      {
+        lead_id: form.lead_id,
+        title: `${form.channel} — ${lead.full_name}`,
+        channel: form.channel,
+        scheduled_at: new Date(`${form.date}T${form.time}`).toISOString(),
+        assigned_to: form.assigned_to || lead.assigned_to,
+        notes: form.notes.trim() || null,
+      },
+      { onSuccess: () => setForm({ lead_id: "", channel: FOLLOWUP_CHANNELS[0]!, date: "", time: "", assigned_to: "", notes: "" }) },
+    );
+  };
 
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="Execution" title="Follow-up Automation" description="Scheduled touchpoints and the rules that generate them." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Scheduled" value={followups.filter((f) => f.status === "pending").length} icon={<Timer className="h-4 w-4" />} />
+      <SectionHeader eyebrow="Execution" title="Follow-Up Scheduler & Automation" description="Scheduled touchpoints and the rules that generate them." />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <StatTile label="Total pending" value={followups.filter((f) => f.status === "pending").length} icon={<Timer className="h-4 w-4" />} />
+        <StatTile label="Today" value={today.length} tone="info" />
         <StatTile label="Overdue" value={overdue.length} tone="danger" />
-        <StatTile label="Completed" value={followups.filter((f) => f.status === "completed").length} tone="success" />
+        <StatTile label="Completed today" value={today.filter((f) => f.status === "completed").length} tone="success" />
         <StatTile label="Active automations" value={rules.filter((r) => r.active).length} tone="primary" />
       </div>
+
+      <Panel title="Schedule new follow-up" bodyClassName="p-4">
+        <form onSubmit={schedule} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <select required className={control} value={form.lead_id} onChange={(e) => setField("lead_id", e.target.value)}>
+            <option value="">Select lead…</option>
+            {leads.map((l) => (
+              <option key={l.id} value={l.id}>{l.full_name} — {l.software_interest}</option>
+            ))}
+          </select>
+          <select className={control} value={form.channel} onChange={(e) => setField("channel", e.target.value)}>
+            {FOLLOWUP_CHANNELS.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <select className={control} value={form.assigned_to} onChange={(e) => setField("assigned_to", e.target.value)}>
+            <option value="">Owner (inherit from lead)</option>
+            {team.filter((t) => t.active).map((t) => (
+              <option key={t.id} value={t.vala_id}>{t.full_name}</option>
+            ))}
+          </select>
+          <input required type="date" className={control} value={form.date} onChange={(e) => setField("date", e.target.value)} />
+          <input required type="time" className={control} value={form.time} onChange={(e) => setField("time", e.target.value)} />
+          <input className={control} placeholder="Add notes for this follow-up…" value={form.notes} onChange={(e) => setField("notes", e.target.value)} />
+          <button
+            type="submit"
+            disabled={create.isPending}
+            className="rounded-lg gradient-command px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60 sm:col-span-2 xl:col-span-1"
+          >
+            {create.isPending ? "Scheduling…" : "Schedule follow-up"}
+          </button>
+        </form>
+      </Panel>
+
+      {overdue.length > 0 ? (
+        <Panel title="Overdue follow-ups" bodyClassName="space-y-2">
+          {overdue.map((f) => {
+            const lead = leadById.get(f.lead_id);
+            return (
+              <button key={`od-${f.id}`} onClick={() => lead && onOpenLead(lead)} className="flex w-full items-center gap-3 rounded-xl border border-destructive/45 bg-destructive/10 px-4 py-2.5 text-left">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <span className="min-w-0 flex-1 truncate text-xs text-foreground">{f.title}</span>
+                <span className="text-[11px] text-destructive">Due {relativeTime(f.scheduled_at)}</span>
+              </button>
+            );
+          })}
+        </Panel>
+      ) : null}
+
 
       <Panel title="Automation rules" bodyClassName="space-y-3">
         {rules.map((r) => (
@@ -515,15 +737,54 @@ export function LeadEscalation({ onOpenLead }: { onOpenLead: (l: Lead) => void }
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
   const open = escalations.filter((e) => e.status !== "resolved");
 
+  const resolved = escalations.filter((e) => e.resolved_at);
+  const avgResolutionMin = resolved.length
+    ? Math.round(
+        resolved.reduce((s, e) => s + (new Date(e.resolved_at as string).getTime() - new Date(e.created_at).getTime()) / 60000, 0) /
+          resolved.length,
+      )
+    : 0;
+
+  const repeatOffenders = useMemo(() => {
+    const counts = new Map<string, number>();
+    escalations.forEach((e) => {
+      if (e.lead_id) counts.set(e.lead_id, (counts.get(e.lead_id) ?? 0) + 1);
+    });
+    return Array.from(counts)
+      .filter(([, n]) => n > 1)
+      .sort((a, b) => b[1] - a[1]);
+  }, [escalations]);
+
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="Execution" title="Escalation Management" description="SLA breaches and management interventions." />
+      <SectionHeader eyebrow="Execution" title="Escalation Management" description="Manage escalated leads and prevent missed opportunities." />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Open" value={open.length} tone="danger" icon={<AlertTriangle className="h-4 w-4" />} />
+        <StatTile label="Currently escalated" value={open.length} tone="danger" icon={<AlertTriangle className="h-4 w-4" />} />
         <StatTile label="Level 2+" value={open.filter((e) => e.level >= 2).length} tone="warning" />
-        <StatTile label="Resolved" value={escalations.length - open.length} tone="success" />
-        <StatTile label="Avg SLA (min)" value={escalations.length ? Math.round(escalations.reduce((s, e) => s + e.sla_minutes, 0) / escalations.length) : 0} tone="info" />
+        <StatTile label="Resolved" value={escalations.length - open.length} tone="success" hint={`avg SLA ${escalations.length ? Math.round(escalations.reduce((s, e) => s + e.sla_minutes, 0) / escalations.length) : 0}m`} />
+        <StatTile label="Avg resolution" value={avgResolutionMin ? `${avgResolutionMin}m` : "—"} tone="info" />
       </div>
+
+      <Panel title="Repeat offenders" description="Leads escalated more than once" bodyClassName="space-y-2">
+        {repeatOffenders.length === 0 ? <EmptyState title="No repeat escalations" /> : null}
+        {repeatOffenders.map(([leadId, count]) => {
+          const lead = leadById.get(leadId);
+          return (
+            <button
+              key={leadId}
+              onClick={() => lead && onOpenLead(lead)}
+              className="flex w-full items-center justify-between rounded-xl border border-warning/45 bg-warning/10 px-3 py-2 text-left"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-foreground">{lead?.full_name ?? "Lead"}</p>
+                <p className="truncate text-[11px] text-muted-foreground">{lead?.region ?? "—"} · {lead?.assigned_to ?? "unassigned"}</p>
+              </div>
+              <span className="shrink-0 text-[11px] font-semibold text-warning">{count} escalations</span>
+            </button>
+          );
+        })}
+      </Panel>
+
 
       <Panel title="Escalation queue" bodyClassName="space-y-3">
         {escalations.length === 0 ? <EmptyState title="No escalations" /> : null}
@@ -612,6 +873,25 @@ export function LeadCompliance({ onOpenLead }: { onOpenLead: (l: Lead) => void }
         ))}
       </Panel>
 
+      <Panel title="Policy reminders for handlers" description="Live reminders generated from the active policy register" bodyClassName="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {policies.length === 0 ? <EmptyState title="No policies configured" /> : null}
+        {policies.map((p) => (
+          <div
+            key={`reminder-${p.id}`}
+            className={cn(
+              "rounded-xl border p-3",
+              p.status === "compliant" ? "border-success/40 bg-success/10" : p.status === "at_risk" ? "border-destructive/45 bg-destructive/10" : "border-warning/45 bg-warning/10",
+            )}
+          >
+            <p className="text-xs font-semibold text-foreground">{p.title}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{p.description}</p>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{p.category} · {p.status.replace("_", " ")}</p>
+          </div>
+        ))}
+      </Panel>
+
+
+
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel title="Do-not-contact register" bodyClassName="space-y-2">
           {dnc.length === 0 ? <EmptyState title="No suppressed contacts" /> : null}
@@ -652,6 +932,9 @@ export function LeadCompliance({ onOpenLead }: { onOpenLead: (l: Lead) => void }
 export function LeadBehavior({ onOpenLead }: { onOpenLead: (l: Lead) => void }) {
   const { data: events = [] } = useBehaviorEvents();
   const { data: leads = [] } = useLeads();
+  const { data: team = [] } = useTeam();
+  const { data: activities = [] } = useActivities();
+  const { data: escalations = [] } = useEscalations();
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
 
   const byType = useMemo(() => {
@@ -662,15 +945,90 @@ export function LeadBehavior({ onOpenLead }: { onOpenLead: (l: Lead) => void }) 
 
   const totalTime = events.reduce((s, e) => s + e.duration_seconds, 0);
 
+  const handlers = useMemo(
+    () =>
+      team.map((m) => {
+        const owned = leads.filter((l) => l.assigned_to === m.vala_id);
+        const touched = activities.filter((a) => a.actor === m.vala_id);
+        const responses = owned
+          .filter((l) => l.status !== "new")
+          .map((l) => (new Date(l.last_action_at).getTime() - new Date(l.created_at).getTime()) / 60000)
+          .filter((n) => n >= 0);
+        const violations = escalations.filter((e) => e.assigned_to === m.vala_id).length;
+        const quality = owned.length ? Math.round(owned.reduce((s, l) => s + l.quality_score, 0) / owned.length) : 0;
+        return {
+          id: m.id,
+          name: m.full_name,
+          valaId: m.vala_id,
+          leads: owned.length,
+          conversions: owned.filter((l) => l.status === "won").length,
+          responseMin: responses.length ? Math.round(responses.reduce((s, n) => s + n, 0) / responses.length) : 0,
+          quality,
+          touches: touched.length,
+          violations,
+        };
+      }),
+    [team, leads, activities, escalations],
+  );
+
+  const routingBands = [
+    { label: "75–89 and above", rule: "Priority routing", tone: "text-success", count: leads.filter((l) => l.quality_score >= 75).length },
+    { label: "60–74", rule: "Normal routing", tone: "text-info", count: leads.filter((l) => l.quality_score >= 60 && l.quality_score < 75).length },
+    { label: "Below 60", rule: "Reduced assignments · training required", tone: "text-destructive", count: leads.filter((l) => l.quality_score < 60).length },
+  ];
+
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="Intelligence" title="Behaviour Tracking" description="Digital signals captured before and after contact." />
+      <SectionHeader eyebrow="Intelligence" title="Behaviour Tracking" description="Digital signals, handler performance and response metrics." />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Tracked events" value={events.length} />
         <StatTile label="Engaged leads" value={new Set(events.map((e) => e.lead_id)).size} tone="primary" />
         <StatTile label="Total dwell time" value={`${Math.round(totalTime / 60)}m`} tone="info" />
         <StatTile label="Mobile share" value={`${percent(events.filter((e) => e.device === "mobile").length, events.length)}%`} tone="warning" />
       </div>
+
+      <Panel title="Handler performance scores" description="Response time, conversions, quality and violations per owner" bodyClassName="overflow-x-auto p-0">
+        <table className="w-full text-left text-xs">
+          <thead className="border-b border-border text-muted-foreground">
+            <tr>
+              {["Handler", "Leads", "Response time", "Conversions", "Quality", "Touches", "Violations"].map((h) => (
+                <th key={h} className="px-4 py-3 font-medium uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {handlers.map((h) => (
+              <tr key={h.id} className="border-b border-border/60">
+                <td className="px-4 py-3">
+                  <p className="text-foreground">{h.name}</p>
+                  <p className="font-mono text-[10px] text-muted-foreground">{h.valaId}</p>
+                </td>
+                <td className="px-4 py-3 tabular-nums text-muted-foreground">{h.leads}</td>
+                <td className="px-4 py-3 tabular-nums text-muted-foreground">{h.responseMin ? `${h.responseMin}m` : "—"}</td>
+                <td className="px-4 py-3 tabular-nums text-success">{h.conversions}</td>
+                <td className={cn("px-4 py-3 tabular-nums", scoreTone(h.quality))}>{h.quality}</td>
+                <td className="px-4 py-3 tabular-nums text-muted-foreground">{h.touches}</td>
+                <td className={cn("px-4 py-3 tabular-nums", h.violations ? "text-destructive" : "text-muted-foreground")}>{h.violations}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      <Panel title="Behaviour score impact on lead routing" bodyClassName="grid gap-3 sm:grid-cols-3">
+        {routingBands.map((b) => (
+          <div key={b.label} className="rounded-xl border border-border bg-secondary/30 p-3">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{b.label}</p>
+            </div>
+            <p className={cn("mt-2 text-2xl font-semibold tabular-nums", b.tone)}>{b.count}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{b.rule}</p>
+          </div>
+        ))}
+      </Panel>
+
+
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel title="Event mix" bodyClassName="h-64 p-3">
@@ -708,10 +1066,27 @@ export function LeadBehavior({ onOpenLead }: { onOpenLead: (l: Lead) => void }) 
 
 /* ------------------------------ analytics --------------------------------- */
 
+const ANALYTICS_RANGES = [
+  { id: "7", label: "Last 7 days" },
+  { id: "30", label: "Last 30 days" },
+  { id: "90", label: "Last 90 days" },
+  { id: "365", label: "Last year" },
+  { id: "all", label: "All time" },
+];
+
 export function LeadAnalytics() {
-  const { data: leads = [] } = useLeads();
+  const { data: allLeads = [] } = useLeads();
   const { data: team = [] } = useTeam();
   const { data: sources = [] } = useSources();
+  const [range, setRange] = useState("30");
+
+  const leads = useMemo(() => {
+    if (range === "all") return allLeads;
+    const cutoff = Date.now() - Number(range) * 86_400_000;
+    return allLeads.filter((l) => new Date(l.created_at).getTime() >= cutoff);
+  }, [allLeads, range]);
+
+
 
   const repPerformance = team.map((m) => {
     const owned = leads.filter((l) => l.assigned_to === m.vala_id);
@@ -734,15 +1109,43 @@ export function LeadAnalytics() {
     };
   });
 
+  const closed = leads.filter((l) => l.status === "won" || l.status === "lost");
+  const avgHandlingHours = closed.length
+    ? Math.round(
+        closed.reduce((s, l) => s + (new Date(l.last_action_at).getTime() - new Date(l.created_at).getTime()) / 3.6e6, 0) / closed.length,
+      )
+    : 0;
+  const wonRevenue = leads.filter((l) => l.status === "won").reduce((s, l) => s + Number(l.expected_value), 0);
+
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="Governance" title="Analytics & Reports" description="Performance across owners, sources and stages." />
+      <SectionHeader
+        eyebrow="Governance"
+        title="Lead Reports & Analytics"
+        description="Comprehensive performance insights across owners, sources and stages."
+        actions={
+          <select className={cn(control, "max-w-40")} value={range} onChange={(e) => setRange(e.target.value)}>
+            {ANALYTICS_RANGES.map((r) => (
+              <option key={r.id} value={r.id}>{r.label}</option>
+            ))}
+          </select>
+        }
+      />
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Total leads" value={leads.length} />
-        <StatTile label="Won revenue" value={formatCurrency(leads.filter((l) => l.status === "won").reduce((s, l) => s + Number(l.expected_value), 0))} tone="success" />
+        <StatTile label="Won revenue" value={formatCurrency(wonRevenue)} tone="success" />
         <StatTile label="Acquisition cost" value={formatCurrency(sourceRoi.reduce((s, r) => s + r.cost, 0))} tone="warning" />
-        <StatTile label="Win rate" value={`${percent(leads.filter((l) => l.status === "won").length, leads.length)}%`} tone="primary" />
+        <StatTile label="Conversion rate" value={`${percent(leads.filter((l) => l.status === "won").length, leads.length)}%`} tone="primary" />
       </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label="Revenue / lead" value={formatCurrency(leads.length ? wonRevenue / leads.length : 0)} tone="success" icon={<Users className="h-4 w-4" />} />
+        <StatTile label="Avg. handling time" value={avgHandlingHours ? `${avgHandlingHours}h` : "—"} tone="info" />
+        <StatTile label="Lead quality score" value={leads.length ? Math.round(leads.reduce((s, l) => s + l.quality_score, 0) / leads.length) : 0} tone="primary" />
+        <StatTile label="Qualified rate" value={`${percent(leads.filter((l) => l.qualified).length, leads.length)}%`} tone="warning" />
+      </div>
+
+
 
       <Panel title="Rep performance" bodyClassName="h-72 p-3">
         <ResponsiveContainer width="100%" height="100%">

@@ -15,6 +15,9 @@ export function LeadPipeline({ search, onOpenLead }: { search: string; onOpenLea
   const [owner, setOwner] = useState("all");
   const [view, setView] = useState<"board" | "list">("board");
   const [selected, setSelected] = useState<string[]>([]);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<LeadStatus | null>(null);
+
 
   const { data: leads = [], isLoading, error, refetch } = useLeads({
     status,
@@ -26,7 +29,7 @@ export function LeadPipeline({ search, onOpenLead }: { search: string; onOpenLea
   const { data: territories = [] } = useTerritories();
   const { data: sources = [] } = useSources();
   const { data: team = [] } = useTeam();
-  const { bulkStatus } = useLeadMutations();
+  const { bulkStatus, changeStatus } = useLeadMutations();
 
   const grouped = useMemo(() => {
     const map = {} as Record<LeadStatus, Lead[]>;
@@ -47,7 +50,7 @@ export function LeadPipeline({ search, onOpenLead }: { search: string; onOpenLea
       <SectionHeader
         eyebrow="Pipeline"
         title="Lead Pipeline"
-        description="Every captured lead across the six-stage Software Vala funnel."
+        description="Live pipeline view — drag a card between columns to update its status."
         actions={
           <div className="flex rounded-lg border border-border p-0.5">
             <button onClick={() => setView("board")} className={cn("rounded-md p-1.5", view === "board" ? "bg-primary/20 text-primary" : "text-muted-foreground")}>
@@ -119,7 +122,23 @@ export function LeadPipeline({ search, onOpenLead }: { search: string; onOpenLea
       {!isLoading && leads.length > 0 && view === "board" ? (
         <div className="grid gap-4 xl:grid-cols-3 2xl:grid-cols-6">
           {LEAD_STATUSES.map((s) => (
-            <section key={s} className="flex flex-col gap-3">
+            <section
+              key={s}
+              className={cn("flex flex-col gap-3 rounded-xl p-1 transition-colors", dropTarget === s ? "bg-primary/10 ring-1 ring-primary/40" : "")}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDropTarget(s);
+              }}
+              onDragLeave={() => setDropTarget((t) => (t === s ? null : t))}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDropTarget(null);
+                const id = dragId ?? e.dataTransfer.getData("text/plain");
+                const lead = leads.find((l) => l.id === id);
+                setDragId(null);
+                if (lead && lead.status !== s) changeStatus.mutate({ id: lead.id, status: s });
+              }}
+            >
               <header className={cn("flex items-center justify-between rounded-xl border px-3 py-2", STAGES[s].borderClass, STAGES[s].bgClass)}>
                 <span className={cn("text-xs font-bold tracking-wide", STAGES[s].textClass)}>{STAGES[s].label}</span>
                 <span className="rounded-md bg-background/50 px-1.5 text-[11px] font-semibold text-foreground">
@@ -128,13 +147,29 @@ export function LeadPipeline({ search, onOpenLead }: { search: string; onOpenLea
               </header>
               <div className="space-y-3">
                 {grouped[s].map((lead) => (
-                  <LeadCard key={lead.id} lead={lead} onOpen={onOpenLead} selected={selected.includes(lead.id)} onToggleSelect={toggle} compact />
+                  <div
+                    key={lead.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragId(lead.id);
+                      e.dataTransfer.setData("text/plain", lead.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setDropTarget(null);
+                    }}
+                    className={cn("cursor-grab active:cursor-grabbing", dragId === lead.id ? "opacity-50" : "")}
+                  >
+                    <LeadCard lead={lead} onOpen={onOpenLead} selected={selected.includes(lead.id)} onToggleSelect={toggle} compact />
+                  </div>
                 ))}
               </div>
             </section>
           ))}
         </div>
       ) : null}
+
 
       {!isLoading && leads.length > 0 && view === "list" ? (
         <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
