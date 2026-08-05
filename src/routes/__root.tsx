@@ -77,14 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Software Vala Lead Manager" },
+      { name: "description", content: "Lead pipeline, routing, qualification, follow-up and compliance command centre for Software Vala." },
+      { name: "author", content: "Software Vala" },
+      { property: "og:title", content: "Software Vala Lead Manager" },
+      { property: "og:description", content: "Lead pipeline, routing, qualification, follow-up and compliance command centre for Software Vala." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {

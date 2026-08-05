@@ -75,13 +75,13 @@ export function LeadDetails({ lead, onClose }: { lead: Lead | null; onClose: () 
                 {priority.label}
               </span>
               {lead.tags.map((t) => (
-                <span key={t} className="rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                <span key={t} role="tab" aria-selected={tab === t} className="rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                   {t}
                 </span>
               ))}
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary">
+          <button onClick={onClose} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary" aria-label="Close details">
             <X className="h-4 w-4" />
           </button>
         </header>
@@ -89,7 +89,7 @@ export function LeadDetails({ lead, onClose }: { lead: Lead | null; onClose: () 
         <div className="flex gap-1 overflow-x-auto border-b border-border px-3 py-2">
           {TABS.map((t) => (
             <button
-              key={t}
+              key={t} role="tab" aria-selected={tab === t}
               onClick={() => setTab(t)}
               className={cn(
                 "rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-colors",

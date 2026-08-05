@@ -92,7 +92,7 @@ export function NotificationDock({ open, onClose }: { open: boolean; onClose: ()
     <div className="fixed bottom-5 right-5 z-50 w-80 space-y-2">
       <div className="flex items-center justify-between rounded-lg border border-border bg-card/95 px-3 py-2 backdrop-blur-xl">
         <span className="text-xs font-semibold text-foreground">Live alerts</span>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close notifications">
           <X className="h-4 w-4" />
         </button>
       </div>

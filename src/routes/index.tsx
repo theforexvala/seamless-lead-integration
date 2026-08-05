@@ -51,6 +51,7 @@ function LeadManagerPage() {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [dockOpen, setDockOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
   const { data: leads = [] } = useLeads();
@@ -75,10 +76,21 @@ function LeadManagerPage() {
         onSearchChange={setSearch}
         onAIClick={() => setAiOpen(true)}
         onNotificationsClick={() => setDockOpen((v) => !v)}
+        onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
-      <LeadSidebar active={section} onChange={setSection} onAddLead={() => setCaptureOpen(true)} badges={badges} />
+      <LeadSidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        active={section}
+        onChange={(id) => {
+          setSection(id);
+          if (window.innerWidth < 768) setSidebarOpen(false);
+        }}
+        onAddLead={() => setCaptureOpen(true)}
+        badges={badges}
+      />
 
-      <main className="ml-64 px-6 pb-16 pt-22">
+      <main className="px-4 pb-16 pt-22 transition-all sm:px-6 md:ml-64">
         {section === "dashboard" ? <LeadDashboard onOpenLead={open} /> : null}
         {section === "pipeline" ? <LeadPipeline search={search} onOpenLead={open} /> : null}
         {section === "incoming" ? <LeadIncoming search={search} onOpenLead={open} /> : null}

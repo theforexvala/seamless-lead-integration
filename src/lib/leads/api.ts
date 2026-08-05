@@ -90,6 +90,33 @@ export async function createLead(payload: LeadInsert): Promise<Lead> {
   return data;
 }
 
+export async function createLeads(payloads: LeadInsert[]): Promise<Lead[]> {
+  if (payloads.length === 0) return [];
+  const { data, error } = await supabase.from("leads").insert(payloads).select();
+  if (error) throw new Error(error.message);
+  const leads = data as Lead[];
+  const { error: activityError } = await supabase.from("lead_activities").insert(
+    leads.map((lead) => ({
+      lead_id: lead.id,
+      actor: "lead_manager",
+      action: "Lead captured",
+      detail: `Imported from ${lead.source}`,
+      channel: "bulk_import",
+    })),
+  );
+  if (activityError) throw new Error(activityError.message);
+  const { error: notificationError } = await supabase.from("lead_notifications").insert(
+    leads.map((lead) => ({
+      lead_id: lead.id,
+      message: `New lead imported — AI is reviewing interest category for ${lead.software_interest}.`,
+      type: "info",
+    })),
+  );
+  if (notificationError) throw new Error(notificationError.message);
+  await logAction("leads_bulk_imported", { count: leads.length, lead_ids: leads.map((lead) => lead.id) });
+  return leads;
+}
+
 export async function updateLead(id: string, patch: LeadUpdate): Promise<Lead> {
   const { data, error } = await supabase
     .from("leads")
@@ -483,6 +510,13 @@ export async function fetchSources(): Promise<LeadSource[]> {
   return unwrap<LeadSource[]>(
     await supabase.from("lead_sources").select("*").order("name", { ascending: true }),
   );
+}
+
+export async function updateSource(id: string, patch: Partial<LeadSource>): Promise<LeadSource> {
+  const { data, error } = await supabase.from("lead_sources").update(patch).eq("id", id).select().single();
+  if (error) throw new Error(error.message);
+  await logAction("lead_source_updated", { source_id: id, fields: Object.keys(patch) });
+  return data;
 }
 
 export async function fetchTeam(): Promise<TeamMember[]> {

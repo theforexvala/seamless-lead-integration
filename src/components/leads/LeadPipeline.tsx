@@ -65,25 +65,25 @@ export function LeadPipeline({ search, onOpenLead }: { search: string; onOpenLea
 
       <div className="glass-panel flex flex-wrap items-center gap-2 p-3">
         <Filter className="h-4 w-4 text-muted-foreground" />
-        <select className={control} value={status} onChange={(e) => setStatus(e.target.value as LeadStatus | "all")}>
+        <select className={control} value={status} onChange={(e) => setStatus(e.target.value as LeadStatus | "all")} aria-label="Filter by stage">
           <option value="all">All stages</option>
           {LEAD_STATUSES.map((s) => (
             <option key={s} value={s}>{STAGES[s].label}</option>
           ))}
         </select>
-        <select className={control} value={region} onChange={(e) => setRegion(e.target.value)}>
+        <select className={control} value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Filter by region">
           <option value="all">All regions</option>
           {regions.map((r) => (
             <option key={r} value={r}>{r}</option>
           ))}
         </select>
-        <select className={control} value={source} onChange={(e) => setSource(e.target.value)}>
+        <select className={control} value={source} onChange={(e) => setSource(e.target.value)} aria-label="Filter by source">
           <option value="all">All sources</option>
           {sources.map((s) => (
             <option key={s.id} value={s.name}>{s.name}</option>
           ))}
         </select>
-        <select className={control} value={owner} onChange={(e) => setOwner(e.target.value)}>
+        <select className={control} value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Filter by owner">
           <option value="all">All owners</option>
           {team.map((t) => (
             <option key={t.id} value={t.vala_id}>{t.full_name}</option>
@@ -120,7 +120,7 @@ export function LeadPipeline({ search, onOpenLead }: { search: string; onOpenLea
       ) : null}
 
       {!isLoading && leads.length > 0 && view === "board" ? (
-        <div className="grid gap-4 xl:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           {LEAD_STATUSES.map((s) => (
             <section
               key={s}

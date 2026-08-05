@@ -129,7 +129,7 @@ export function LeadDashboard({ onOpenLead }: { onOpenLead: (lead: Lead) => void
         description="Real-time state of every lead, owner and automation in Software Vala."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Total leads" value={stats.total} hint={`${stats.open} open · ${stats.qualified} qualified`} icon={<Users className="h-4 w-4" />} />
         <StatTile label="Pipeline value" value={formatCurrency(stats.pipelineValue)} hint={`${formatCurrency(stats.revenue)} won`} tone="primary" icon={<DollarSign className="h-4 w-4" />} />
         <StatTile label="Conversion rate" value={`${stats.conversion}%`} hint={`${stats.won} won · ${stats.lost} lost`} tone="success" icon={<TrendingUp className="h-4 w-4" />} />

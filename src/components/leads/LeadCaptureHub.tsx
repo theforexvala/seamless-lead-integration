@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { FileSpreadsheet, Globe, Plus, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useLeadMutations, useSources, useTeam, useTerritories } from "@/lib/leads/hooks";
 import type { LeadPriority } from "@/lib/leads/types";
 import { LEAD_PRIORITIES } from "@/lib/leads/types";
+import { BulkLeadImport, CaptureSources } from "./LeadCaptureImports";
 
 const EMPTY = {
   full_name: "",
@@ -26,6 +28,7 @@ const EMPTY = {
 
 /** Multi-channel capture hub — writes a real lead row through the API layer. */
 export function LeadCaptureHub({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [tab, setTab] = useState<"manual" | "bulk" | "sources">("manual");
   const [form, setForm] = useState({ ...EMPTY });
   const { data: sources = [] } = useSources();
   const { data: territories = [] } = useTerritories();
@@ -86,13 +89,19 @@ export function LeadCaptureHub({ open, onClose }: { open: boolean; onClose: () =
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary"
+            className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary" aria-label="Close hub"
           >
             <X className="h-4 w-4" />
           </button>
         </header>
 
-        <div className="grid gap-4 p-5 sm:grid-cols-2">
+        <div className="flex gap-1 overflow-x-auto border-b border-border p-3">
+          {([{ id: "manual", label: "Manual Entry", icon: Plus }, { id: "bulk", label: "Bulk CSV", icon: FileSpreadsheet }, { id: "sources", label: "Auto-Import Sources", icon: Globe }] as const).map((item) => (
+            <Button key={item.id} type="button" variant={tab === item.id ? "default" : "ghost"} size="sm" onClick={() => setTab(item.id)}><item.icon />{item.label}</Button>
+          ))}
+        </div>
+
+        {tab === "manual" ? <div className="grid gap-4 p-5 sm:grid-cols-2">
           <div>
             <label className={label}>Full name</label>
             <input required value={form.full_name} onChange={(e) => set("full_name", e.target.value)} className={field} placeholder="Ahmed Hassan" />
@@ -173,9 +182,9 @@ export function LeadCaptureHub({ open, onClose }: { open: boolean; onClose: () =
             </label>
             <input value={form.consent_channel} onChange={(e) => set("consent_channel", e.target.value)} className={`${field} max-w-48`} placeholder="Consent channel (web form)" />
           </div>
-        </div>
+        </div> : null}
 
-        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+        {tab === "manual" ? <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
           <button type="button" onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary">
             Cancel
           </button>
@@ -186,7 +195,9 @@ export function LeadCaptureHub({ open, onClose }: { open: boolean; onClose: () =
           >
             {createLead.isPending ? "Capturing…" : "Capture lead"}
           </button>
-        </footer>
+        </footer> : null}
+        {tab === "bulk" ? <BulkLeadImport onComplete={() => { setTab("manual"); onClose(); }} /> : null}
+        {tab === "sources" ? <CaptureSources /> : null}
       </form>
     </div>
   );
