@@ -20,11 +20,22 @@ export function LeadCard({
   const stage = STAGES[lead.status];
   const priority = PRIORITY_META[lead.priority];
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpen(lead);
+    }
+  };
+
   return (
     <article
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(lead)}
+      onKeyDown={handleKeyDown}
+      aria-label={`View details for ${lead.full_name}`}
       className={cn(
-        "glass-panel glass-panel-hover cursor-pointer p-4",
+        "glass-panel glass-panel-hover cursor-pointer p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary",
         selected && "border-primary/60 shadow-[var(--shadow-glow)]",
       )}
     >
@@ -36,6 +47,7 @@ export function LeadCard({
             onClick={(e) => e.stopPropagation()}
             onChange={() => onToggleSelect(lead.id)}
             className="mt-1 h-4 w-4 rounded border-border"
+            aria-label={`Select lead ${lead.full_name}`}
           />
         ) : null}
         <div
@@ -69,15 +81,15 @@ export function LeadCard({
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
         {lead.company ? (
           <span className="inline-flex items-center gap-1">
-            <Building2 className="h-3 w-3" /> {lead.company}
+            <Building2 className="h-3 w-3" aria-hidden="true" /> {lead.company}
           </span>
         ) : null}
         <span className="inline-flex items-center gap-1">
-          <MapPin className="h-3 w-3" /> {lead.city ? `${lead.city}, ` : ""}
+          <MapPin className="h-3 w-3" aria-hidden="true" /> {lead.city ? `${lead.city}, ` : ""}
           {lead.region}
         </span>
         <span className="inline-flex items-center gap-1">
-          <Clock className="h-3 w-3" /> {relativeTime(lead.last_action_at)}
+          <Clock className="h-3 w-3" aria-hidden="true" /> {relativeTime(lead.last_action_at)}
         </span>
       </div>
 
@@ -91,10 +103,10 @@ export function LeadCard({
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className={cn("inline-flex items-center gap-1 text-xs font-semibold", scoreTone(lead.ai_score))}>
-            <Sparkles className="h-3.5 w-3.5" /> {lead.ai_score}
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> {lead.ai_score}
           </span>
           <span className="inline-flex items-center gap-1 text-xs text-warning">
-            <Flame className="h-3.5 w-3.5" /> {lead.urgency_score}
+            <Flame className="h-3.5 w-3.5" aria-hidden="true" /> {lead.urgency_score}
           </span>
           <span className="text-xs tabular-nums text-muted-foreground">
             {formatCurrency(lead.expected_value)}

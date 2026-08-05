@@ -1,4 +1,4 @@
-import { Bell, Brain, RefreshCw, Search, ShieldCheck, Target } from "lucide-react";
+import { Bell, Brain, Menu, RefreshCw, Search, ShieldCheck, Target } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNotifications } from "@/lib/leads/hooks";
 
@@ -7,11 +7,13 @@ export function LeadManagerTopBar({
   onSearchChange,
   onAIClick,
   onNotificationsClick,
+  onToggleSidebar,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
   onAIClick: () => void;
   onNotificationsClick: () => void;
+  onToggleSidebar?: () => void;
 }) {
   const qc = useQueryClient();
   const { data: notifications = [] } = useNotifications();
@@ -20,6 +22,14 @@ export function LeadManagerTopBar({
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-16 border-b border-border bg-card/80 backdrop-blur-xl">
       <div className="flex h-full items-center gap-4 px-4">
+        <button
+          onClick={onToggleSidebar}
+          className="focus-ring rounded-xl border border-border p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:hidden"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-command shadow-[var(--shadow-glow)]">
             <Target className="h-5 w-5 text-primary-foreground" />
@@ -39,6 +49,7 @@ export function LeadManagerTopBar({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search leads, companies, software interest…"
             className="focus-ring h-9 w-full rounded-xl border border-border bg-secondary/60 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground"
+            aria-label="Search leads"
           />
         </div>
 
@@ -50,6 +61,7 @@ export function LeadManagerTopBar({
             onClick={() => qc.invalidateQueries()}
             title="Refresh live data"
             className="focus-ring rounded-xl border border-border p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label="Refresh data"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -57,11 +69,12 @@ export function LeadManagerTopBar({
             onClick={onAIClick}
             className="focus-ring inline-flex items-center gap-2 rounded-xl gradient-command px-3 py-2 text-xs font-semibold text-primary-foreground"
           >
-            <Brain className="h-4 w-4" /> AI Actions
+            <Brain className="h-4 w-4" /> <span className="hidden sm:inline">AI Actions</span>
           </button>
           <button
             onClick={onNotificationsClick}
             className="focus-ring relative rounded-xl border border-border p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label={`${unread} unread notifications`}
           >
             <Bell className="h-4 w-4" />
             {unread > 0 ? (
