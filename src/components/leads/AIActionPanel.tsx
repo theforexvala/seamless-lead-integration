@@ -138,7 +138,7 @@ export function AIActionPanel({ open, onClose, onOpenLead }: { open: boolean; on
               {recommendations.length} recommendations from live pipeline signals
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary">
+          <button onClick={onClose} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary" aria-label="Close AI panel">
             <X className="h-4 w-4" />
           </button>
         </header>

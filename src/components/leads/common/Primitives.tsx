@@ -57,7 +57,7 @@ export function StatTile({
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
         {icon ? <span className="text-muted-foreground">{icon}</span> : null}
       </div>
-      <p className={cn("mt-3 text-3xl font-semibold tabular-nums tracking-tight", tones[tone])}>
+      <p className={cn("mt-3 text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight", tones[tone])}>
         {value}
       </p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}

@@ -79,7 +79,7 @@ export function LeadIncoming({ search, onOpenLead }: { search: string; onOpenLea
   return (
     <div className="space-y-5">
       <SectionHeader eyebrow="Capture" title="Incoming Leads" description="Newly captured leads awaiting first response." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="New today" value={leads.filter((l) => Date.now() - new Date(l.created_at).getTime() < 864e5).length} icon={<BellRing className="h-4 w-4" />} />
         <StatTile label="Awaiting contact" value={leads.length} tone="warning" />
         <StatTile label="Hot arrivals" value={leads.filter((l) => l.priority === "hot").length} tone="danger" />
@@ -166,7 +166,7 @@ export function LeadAssignment({ onOpenLead }: { onOpenLead: (l: Lead) => void }
           </select>
         }
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Unassigned" value={unassigned.length} tone="warning" icon={<UserPlus className="h-4 w-4" />} />
         <StatTile label="Available agents" value={pool.length} />
         <StatTile label="AI match rate" value={`${percent(matched, unassigned.length)}%`} tone="primary" icon={<Brain className="h-4 w-4" />} />
@@ -261,7 +261,7 @@ export function LeadQualification() {
   return (
     <div className="space-y-5">
       <SectionHeader eyebrow="Intelligence" title="AI Qualification Engine" description="Rules that decide when a lead becomes sales-ready." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Qualified leads" value={leads.filter((l) => l.qualified).length} tone="success" icon={<Brain className="h-4 w-4" />} />
         <StatTile label="Active rules" value={rules.filter((r) => r.active).length} tone="primary" />
         <StatTile label="Total matches" value={rules.reduce((s, r) => s + r.matched_count, 0)} tone="info" />
@@ -339,7 +339,7 @@ export function LeadScoring({ onOpenLead }: { onOpenLead: (l: Lead) => void }) {
   return (
     <div className="space-y-5">
       <SectionHeader eyebrow="Intelligence" title="Lead Scoring & Prediction" description="Weighted factors driving AI score and conversion probability." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Avg AI score" value={leads.length ? Math.round(leads.reduce((s, l) => s + l.ai_score, 0) / leads.length) : 0} tone="primary" />
         <StatTile label="Avg conversion" value={`${leads.length ? Math.round(leads.reduce((s, l) => s + l.conversion_probability, 0) / leads.length) : 0}%`} tone="success" />
         <StatTile label="High-quality leads" value={leads.filter((l) => l.quality_score >= 80).length} tone="info" />
@@ -407,7 +407,7 @@ export function LeadBuzzer() {
   return (
     <div className="space-y-5">
       <SectionHeader eyebrow="Execution" title="Buzzer Alerts" description="Instant alerts for hot leads and SLA breaches. Mandatory acknowledgment system." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Live alerts" value={live.length} tone="danger" icon={<BellRing className="h-4 w-4" />} />
         <StatTile label="Critical" value={live.filter((a) => a.severity === "critical").length} tone="danger" />
         <StatTile label="Acknowledged" value={alerts.length - live.length} tone="success" />
@@ -517,7 +517,7 @@ export function LeadTerritory() {
           />
         }
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Territories" value={territories.length} icon={<Globe className="h-4 w-4" />} />
         <StatTile label="Continents" value={new Set(territories.map((t) => t.continent)).size} tone="info" />
         <StatTile label="Total target" value={territories.reduce((s, t) => s + t.target_leads, 0)} tone="primary" />
@@ -758,7 +758,7 @@ export function LeadEscalation({ onOpenLead }: { onOpenLead: (l: Lead) => void }
   return (
     <div className="space-y-5">
       <SectionHeader eyebrow="Execution" title="Escalation Management" description="Manage escalated leads and prevent missed opportunities." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Currently escalated" value={open.length} tone="danger" icon={<AlertTriangle className="h-4 w-4" />} />
         <StatTile label="Level 2+" value={open.filter((e) => e.level >= 2).length} tone="warning" />
         <StatTile label="Resolved" value={escalations.length - open.length} tone="success" hint={`avg SLA ${escalations.length ? Math.round(escalations.reduce((s, e) => s + e.sla_minutes, 0) / escalations.length) : 0}m`} />
@@ -847,7 +847,7 @@ export function LeadCompliance({ onOpenLead }: { onOpenLead: (l: Lead) => void }
   return (
     <div className="space-y-5">
       <SectionHeader eyebrow="Governance" title="Compliance & Policy" description="Consent, data protection and contact governance." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Policies" value={policies.length} icon={<ShieldCheck className="h-4 w-4" />} />
         <StatTile label="Compliant" value={policies.filter((p) => p.status === "compliant").length} tone="success" />
         <StatTile label="Consent granted" value={leads.filter((l) => l.consent_given).length} tone="info" />
@@ -980,7 +980,7 @@ export function LeadBehavior({ onOpenLead }: { onOpenLead: (l: Lead) => void }) 
   return (
     <div className="space-y-5">
       <SectionHeader eyebrow="Intelligence" title="Behaviour Tracking" description="Digital signals, handler performance and response metrics." />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Tracked events" value={events.length} />
         <StatTile label="Engaged leads" value={new Set(events.map((e) => e.lead_id)).size} tone="primary" />
         <StatTile label="Total dwell time" value={`${Math.round(totalTime / 60)}m`} tone="info" />
@@ -1132,13 +1132,13 @@ export function LeadAnalytics() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Total leads" value={leads.length} />
         <StatTile label="Won revenue" value={formatCurrency(wonRevenue)} tone="success" />
         <StatTile label="Acquisition cost" value={formatCurrency(sourceRoi.reduce((s, r) => s + r.cost, 0))} tone="warning" />
         <StatTile label="Conversion rate" value={`${percent(leads.filter((l) => l.status === "won").length, leads.length)}%`} tone="primary" />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Revenue / lead" value={formatCurrency(leads.length ? wonRevenue / leads.length : 0)} tone="success" icon={<Users className="h-4 w-4" />} />
         <StatTile label="Avg. handling time" value={avgHandlingHours ? `${avgHandlingHours}h` : "—"} tone="info" />
         <StatTile label="Lead quality score" value={leads.length ? Math.round(leads.reduce((s, l) => s + l.quality_score, 0) / leads.length) : 0} tone="primary" />
@@ -1252,7 +1252,7 @@ export function ManagerProfile() {
           <p className="text-xs text-muted-foreground">{me?.email ?? "manager@softwarevala.com"}</p>
         </div>
       </Panel>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatTile label="Leads owned" value={owned.length} />
         <StatTile label="Won" value={owned.filter((l) => l.status === "won").length} tone="success" />
         <StatTile label="Open value" value={formatCurrency(owned.filter((l) => l.status !== "won" && l.status !== "lost").reduce((s, l) => s + Number(l.expected_value), 0))} tone="primary" />
