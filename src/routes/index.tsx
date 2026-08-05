@@ -91,7 +91,7 @@ function LeadManagerPage() {
         badges={badges}
       />
 
-      <main className="px-4 pb-16 pt-22 transition-all sm:px-6 md:ml-64">
+      <main className={cn("px-4 pb-16 pt-22 transition-all sm:px-6", sidebarOpen ? "md:ml-64" : "ml-0")}>
         {section === "dashboard" ? <LeadDashboard onOpenLead={open} /> : null}
         {section === "pipeline" ? <LeadPipeline search={search} onOpenLead={open} /> : null}
         {section === "incoming" ? <LeadIncoming search={search} onOpenLead={open} /> : null}
