@@ -51,13 +51,13 @@ export function BulkLeadImport({ onComplete }: { onComplete: () => void }) {
     const missing = REQUIRED.filter((column) => !headers.includes(column));
     if (missing.length) { toast.error(`Missing columns: ${missing.join(", ")}`); return; }
     const priorities = new Set<string>(LEAD_PRIORITIES);
-    const parsed = rows.slice(1).map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index]?.trim() ?? ""]))).map((data) => ({
-      full_name: data.full_name, email: data.email, software_interest: data.software_interest, source: data.source, region: data.region,
-      phone: data.phone || null, company: data.company || null, city: data.city || null, country: data.country || data.region,
-      budget_range: data.budget_range || null, expected_value: Number(data.expected_value) || 0,
-      priority: (priorities.has(data.priority) ? data.priority : "warm") as LeadPriority,
-      consent_given: ["true", "yes", "1"].includes(data.consent_given?.toLowerCase()),
-      consent_channel: data.consent_channel || null, last_action: "CSV import",
+    const parsed = rows.slice(1).map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index]?.trim() ?? ""])) as Record<string, string>).map((data) => ({
+      full_name: data["full_name"] ?? "", email: data["email"] ?? "", software_interest: data["software_interest"] ?? "", source: data["source"] ?? "", region: data["region"] ?? "",
+      phone: data["phone"] || null, company: data["company"] || null, city: data["city"] || null, country: data["country"] || data["region"] || null,
+      budget_range: data["budget_range"] || null, expected_value: Number(data["expected_value"]) || 0,
+      priority: (priorities.has(data["priority"] ?? "") ? data["priority"] : "warm") as LeadPriority,
+      consent_given: ["true", "yes", "1"].includes((data["consent_given"] ?? "").toLowerCase()),
+      consent_channel: data["consent_channel"] || null, last_action: "CSV import",
     } satisfies LeadInsert));
     const incomplete = parsed.findIndex((lead) => !lead.full_name || !lead.email || !lead.software_interest || !lead.source || !lead.region);
     if (incomplete >= 0) { toast.error(`Row ${incomplete + 2} is missing a required value`); return; }
