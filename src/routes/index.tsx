@@ -26,7 +26,6 @@ import {
 } from "@/components/leads/Sections";
 import { useBuzzerAlerts, useEscalations, useLeads, useNotifications } from "@/lib/leads/hooks";
 import type { Lead } from "@/lib/leads/types";
-import { cn } from "@/lib/utils";
 
 const TITLE = "Lead Manager — Software Vala";
 const DESCRIPTION =
