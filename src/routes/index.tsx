@@ -78,7 +78,7 @@ function LeadManagerPage() {
       />
       <LeadSidebar active={section} onChange={setSection} onAddLead={() => setCaptureOpen(true)} badges={badges} />
 
-      <main className="ml-64 px-6 pb-16 pt-22">
+      <main className={cn("transition-all duration-300 px-4 md:px-6 pb-16 pt-22", isSidebarOpen ? "md:ml-64" : "ml-0")}>
         {section === "dashboard" ? <LeadDashboard onOpenLead={open} /> : null}
         {section === "pipeline" ? <LeadPipeline search={search} onOpenLead={open} /> : null}
         {section === "incoming" ? <LeadIncoming search={search} onOpenLead={open} /> : null}
