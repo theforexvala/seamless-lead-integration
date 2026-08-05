@@ -26,6 +26,7 @@ import {
 } from "@/components/leads/Sections";
 import { useBuzzerAlerts, useEscalations, useLeads, useNotifications } from "@/lib/leads/hooks";
 import type { Lead } from "@/lib/leads/types";
+import { cn } from "@/lib/utils";
 
 const TITLE = "Lead Manager — Software Vala";
 const DESCRIPTION =
@@ -51,6 +52,7 @@ function LeadManagerPage() {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [dockOpen, setDockOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
   const { data: leads = [] } = useLeads();
@@ -75,10 +77,21 @@ function LeadManagerPage() {
         onSearchChange={setSearch}
         onAIClick={() => setAiOpen(true)}
         onNotificationsClick={() => setDockOpen((v) => !v)}
+        onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
-      <LeadSidebar active={section} onChange={setSection} onAddLead={() => setCaptureOpen(true)} badges={badges} />
+      <LeadSidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        active={section}
+        onChange={(id) => {
+          setSection(id);
+          if (window.innerWidth < 768) setSidebarOpen(false);
+        }}
+        onAddLead={() => setCaptureOpen(true)}
+        badges={badges}
+      />
 
-      <main className={cn("transition-all duration-300 px-4 md:px-6 pb-16 pt-22", isSidebarOpen ? "md:ml-64" : "ml-0")}>
+      <main className={cn("transition-all duration-300 px-4 md:px-6 pb-16 pt-22", sidebarOpen ? "md:ml-64" : "ml-0")}>
         {section === "dashboard" ? <LeadDashboard onOpenLead={open} /> : null}
         {section === "pipeline" ? <LeadPipeline search={search} onOpenLead={open} /> : null}
         {section === "incoming" ? <LeadIncoming search={search} onOpenLead={open} /> : null}
