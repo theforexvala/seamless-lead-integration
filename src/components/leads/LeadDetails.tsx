@@ -81,7 +81,7 @@ export function LeadDetails({ lead, onClose }: { lead: Lead | null; onClose: () 
               ))}
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary">
+          <button onClick={onClose} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary" aria-label="Close details">
             <X className="h-4 w-4" />
           </button>
         </header>

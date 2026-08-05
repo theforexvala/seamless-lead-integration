@@ -122,6 +122,15 @@ export function useLeadMutations() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const createLeads = useMutation({
+    mutationFn: api.createLeads,
+    onSuccess: (leads) => {
+      invalidateLeads();
+      toast.success(`${leads.length} leads imported`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const updateLead = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof api.updateLead>[1] }) =>
       api.updateLead(id, patch),
@@ -199,7 +208,22 @@ export function useLeadMutations() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { createLead, updateLead, changeStatus, assign, remove, bulkStatus, addNote, logActivity };
+  return { createLead, createLeads, updateLead, changeStatus, assign, remove, bulkStatus, addNote, logActivity };
+}
+
+export function useSourceMutations() {
+  const qc = useQueryClient();
+  return {
+    update: useMutation({
+      mutationFn: ({ id, patch }: { id: string; patch: Parameters<typeof api.updateSource>[1] }) => api.updateSource(id, patch),
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: leadKeys.sources });
+        qc.invalidateQueries({ queryKey: leadKeys.audit });
+        toast.success("Capture source updated");
+      },
+      onError: (e: Error) => toast.error(e.message),
+    }),
+  };
 }
 
 export function useFollowupMutations() {

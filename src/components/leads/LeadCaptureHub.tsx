@@ -86,7 +86,7 @@ export function LeadCaptureHub({ open, onClose }: { open: boolean; onClose: () =
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary"
+            className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary" aria-label="Close hub"
           >
             <X className="h-4 w-4" />
           </button>
