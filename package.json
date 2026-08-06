@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "parity": "bun run scripts/parity-check.ts",
     "format": "prettier --write ."
   },
   "dependencies": {
