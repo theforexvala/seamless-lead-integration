@@ -367,6 +367,10 @@ async function main() {
   /* -------------------------------- cleanup ------------------------------ */
   await check("cleanup", async () => {
     for (const id of createdLeadIds) await deleteLead(id);
+    // Configuration rows are non-deletable by design; deactivate the probe rule instead.
+    const rules = await fetchQualificationRules();
+    const probe = rules.find((r) => r.name.includes(RUN_TAG));
+    if (probe) await toggleQualificationRule(probe.id, false);
     const remaining = await fetchLeads({ search: RUN_TAG });
     assert(remaining.length === 0, "parity leads left behind");
   });
