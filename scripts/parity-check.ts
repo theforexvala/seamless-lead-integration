@@ -509,7 +509,12 @@ async function main() {
     for (const [label, overrides, pattern] of cases) {
       const res = await rest("/rest/v1/leads", {
         method: "POST",
-        body: JSON.stringify(seedLead(overrides as Partial<LeadInsert>)),
+        body: JSON.stringify(
+          seedLead({
+            email: `neg.${label.replace(/\W+/g, "")}+${RUN_TAG}@northbridge-retail.in`,
+            ...(overrides as Partial<LeadInsert>),
+          }),
+        ),
       });
       assertRejected(label, res, [400], ["P0001"]);
       assert(pattern.test(res.body?.message ?? ""), `${label}: unexpected body ${res.body?.message}`);
