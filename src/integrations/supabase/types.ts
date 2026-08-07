@@ -572,7 +572,22 @@ export type Database = {
           updated_at?: string
           urgency_score?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["vala_id"]
+          },
+          {
+            foreignKeyName: "leads_source_fkey"
+            columns: ["source"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["name"]
+          },
+        ]
       }
       qualification_rules: {
         Row: {
