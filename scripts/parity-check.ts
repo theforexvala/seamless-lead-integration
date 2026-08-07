@@ -57,6 +57,54 @@ import type { LeadInsert } from "@/lib/leads/types";
 const RUN_TAG = `parity-${Date.now()}`;
 const createdLeadIds: string[] = [];
 
+const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"] ?? "";
+const SUPABASE_ANON_KEY =
+  process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ??
+  process.env["VITE_SUPABASE_ANON_KEY"] ??
+  process.env["SUPABASE_PUBLISHABLE_KEY"] ??
+  "";
+
+type RestResult = { status: number; body: { code?: string; message?: string } | null };
+
+/** Raw anon REST call — lets negative tests assert real status codes and error bodies. */
+async function rest(path: string, init: RequestInit = {}): Promise<RestResult> {
+  const res = await fetch(`${SUPABASE_URL}${path}`, {
+    ...init,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await res.text();
+  let body: RestResult["body"] = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = { message: text };
+  }
+  return { status: res.status, body };
+}
+
+function assertRejected(
+  label: string,
+  res: RestResult,
+  statuses: number[],
+  codes: string[],
+): asserts res is RestResult & { body: { code: string; message: string } } {
+  if (!statuses.includes(res.status)) {
+    throw new Error(`${label}: expected status ${statuses.join("/")}, got ${res.status}`);
+  }
+  const code = res.body?.code ?? "";
+  if (!codes.includes(code)) {
+    throw new Error(`${label}: expected error code ${codes.join("/")}, got "${code}"`);
+  }
+  if (!res.body?.message) {
+    throw new Error(`${label}: rejection had no error message body`);
+  }
+}
+
+
 let passed = 0;
 let failed = 0;
 
@@ -363,6 +411,141 @@ async function main() {
     const badValue = await supabase.from("leads").insert(seedLead({ expected_value: -1 }));
     assert(badValue.error, "negative expected value accepted");
   });
+
+  /* ------------------- negative tests · disallowed anon ------------------- */
+  await check("negative · privileged tables are not exposed to anon", async () => {
+    for (const table of ["users", "profiles", "user_roles", "secrets"]) {
+      const res = await rest(`/rest/v1/${table}?select=*&limit=1`);
+      assertRejected(`select on public.${table}`, res, [404, 401, 403], [
+        "PGRST205",
+        "PGRST301",
+        "42501",
+      ]);
+    }
+  });
+
+  await check("negative · non-public schemas are unreachable", async () => {
+    const res = await rest("/rest/v1/users?select=*&limit=1", {
+      headers: { "Accept-Profile": "auth" },
+    });
+    assertRejected("select on auth.users", res, [404, 406, 401, 403], [
+      "PGRST106",
+      "PGRST205",
+      "PGRST301",
+      "42501",
+    ]);
+  });
+
+  await check("negative · append-only tables reject UPDATE/DELETE with 401/403", async () => {
+    const logs = await fetchAuditLogs(1);
+    const id = logs[0]!.id;
+    for (const [label, init] of [
+      ["delete audit_logs", { method: "DELETE" }],
+      ["update audit_logs", { method: "PATCH", body: JSON.stringify({ actor: "tampered" }) }],
+    ] as const) {
+      const res = await rest(`/rest/v1/audit_logs?id=eq.${id}`, init);
+      assertRejected(label, res, [401, 403], ["42501"]);
+    }
+    const behaviour = await rest(`/rest/v1/lead_behavior_events?lead_id=eq.${leadId}`, {
+      method: "DELETE",
+    });
+    assertRejected("delete lead_behavior_events", behaviour, [401, 403], ["42501"]);
+    const consent = await rest(`/rest/v1/lead_consents?lead_id=eq.${leadId}`, { method: "DELETE" });
+    assertRejected("delete lead_consents", consent, [401, 403], ["42501"]);
+    const activity = await rest(`/rest/v1/lead_activities?lead_id=eq.${leadId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ action: "tampered" }),
+    });
+    assertRejected("update lead_activities", activity, [401, 403], ["42501"]);
+  });
+
+  await check("negative · configuration tables reject DELETE with 401/403", async () => {
+    for (const table of [
+      "team_members",
+      "territories",
+      "lead_sources",
+      "followup_rules",
+      "qualification_rules",
+      "scoring_factors",
+      "compliance_policies",
+    ]) {
+      const res = await rest(`/rest/v1/${table}?id=not.is.null`, { method: "DELETE" });
+      assertRejected(`delete ${table}`, res, [401, 403], ["42501"]);
+    }
+  });
+
+  await check("negative · referential integrity is enforced (409 / 23503)", async () => {
+    const orphanNote = await rest("/rest/v1/lead_notes", {
+      method: "POST",
+      body: JSON.stringify({
+        lead_id: "00000000-0000-0000-0000-000000000000",
+        body: "orphan note",
+      }),
+    });
+    assertRejected("orphan lead note", orphanNote, [409], ["23503"]);
+
+    const badAssignee = await supabase
+      .from("leads")
+      .update({ assigned_to: "vala(ghost)9999" })
+      .eq("id", leadId);
+    assert(badAssignee.error?.code === "23503", "unknown assignee accepted");
+  });
+
+  await check("negative · duplicate lead email rejected (P0001)", async () => {
+    const existing = await fetchLead(leadId);
+    const dup = await supabase.from("leads").insert(seedLead({ email: existing!.email }));
+    assert(dup.error?.code === "P0001", `duplicate email not rejected (${dup.error?.code})`);
+    assert(/already exists/i.test(dup.error.message), "duplicate email message not descriptive");
+  });
+
+  await check("negative · payload guardrails return descriptive P0001 bodies", async () => {
+    const cases: [string, Record<string, unknown>, RegExp][] = [
+      ["email format", { email: "not-an-email" }, /valid address/i],
+      ["score range", { ai_score: 900 }, /between 0 and 100/i],
+      ["expected value", { expected_value: -1 }, /out of range/i],
+      ["name length", { full_name: "A" }, /between 2 and 120/i],
+      ["tag count", { tags: Array.from({ length: 21 }, (_, i) => `t${i}`) }, /at most 20 tags/i],
+    ];
+    for (const [label, overrides, pattern] of cases) {
+      const res = await rest("/rest/v1/leads", {
+        method: "POST",
+        body: JSON.stringify(
+          seedLead({
+            email: `neg.${label.replace(/\W+/g, "")}+${RUN_TAG}@northbridge-retail.in`,
+            ...(overrides as Partial<LeadInsert>),
+          }),
+        ),
+      });
+      assertRejected(label, res, [400], ["P0001"]);
+      assert(pattern.test(res.body?.message ?? ""), `${label}: unexpected body ${res.body?.message}`);
+    }
+  });
+
+  await check("negative · do-not-contact blocks consent capture", async () => {
+    await setDoNotContact(leadId, true);
+    const res = await rest("/rest/v1/lead_consents", {
+      method: "POST",
+      body: JSON.stringify({ lead_id: leadId, channel: "sms", granted: true }),
+    });
+    assertRejected("consent for DNC lead", res, [400], ["P0001"]);
+    assert(/do-not-contact/i.test(res.body?.message ?? ""), "DNC message not descriptive");
+    await setDoNotContact(leadId, false);
+  });
+
+  await check("negative · anon cannot call privileged RPCs", async () => {
+    for (const fn of ["validate_lead", "set_updated_at", "sync_lead_consent"]) {
+      const res = await rest(`/rest/v1/rpc/${fn}`, { method: "POST", body: "{}" });
+      assertRejected(`rpc ${fn}`, res, [404, 401, 403], ["PGRST202", "PGRST302", "42501"]);
+    }
+  });
+
+  await check("negative · requests without an API key are rejected (401)", async () => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=id&limit=1`);
+    const body = await res.json().catch(() => null);
+    assert(res.status === 401, `missing apikey returned ${res.status}`);
+    assert(body, "missing apikey returned no error body");
+  });
+
 
   /* -------------------------------- cleanup ------------------------------ */
   await check("cleanup", async () => {
