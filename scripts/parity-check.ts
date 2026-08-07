@@ -57,6 +57,54 @@ import type { LeadInsert } from "@/lib/leads/types";
 const RUN_TAG = `parity-${Date.now()}`;
 const createdLeadIds: string[] = [];
 
+const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] ?? process.env["SUPABASE_URL"] ?? "";
+const SUPABASE_ANON_KEY =
+  process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ??
+  process.env["VITE_SUPABASE_ANON_KEY"] ??
+  process.env["SUPABASE_PUBLISHABLE_KEY"] ??
+  "";
+
+type RestResult = { status: number; body: { code?: string; message?: string } | null };
+
+/** Raw anon REST call — lets negative tests assert real status codes and error bodies. */
+async function rest(path: string, init: RequestInit = {}): Promise<RestResult> {
+  const res = await fetch(`${SUPABASE_URL}${path}`, {
+    ...init,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await res.text();
+  let body: RestResult["body"] = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = { message: text };
+  }
+  return { status: res.status, body };
+}
+
+function assertRejected(
+  label: string,
+  res: RestResult,
+  statuses: number[],
+  codes: string[],
+): asserts res is RestResult & { body: { code: string; message: string } } {
+  if (!statuses.includes(res.status)) {
+    throw new Error(`${label}: expected status ${statuses.join("/")}, got ${res.status}`);
+  }
+  const code = res.body?.code ?? "";
+  if (!codes.includes(code)) {
+    throw new Error(`${label}: expected error code ${codes.join("/")}, got "${code}"`);
+  }
+  if (!res.body?.message) {
+    throw new Error(`${label}: rejection had no error message body`);
+  }
+}
+
+
 let passed = 0;
 let failed = 0;
 
